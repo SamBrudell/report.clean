@@ -1,0 +1,62 @@
+import gdown
+import pandas as pd
+import re
+from google.colab import drive
+
+# Mount Google Drive
+drive.mount('/content/drive')  #  authentication prompt
+
+# Google Drive file ID (replace with your actual file ID)
+file_id = '1pR8Jp7zOGV5OmWVa_5VuFBQlppK15Hi4'  # Replace with your actual file ID from the URL
+url = f'https://drive.google.com/uc?id={file_id}'
+
+# Download file from Google Drive
+output_file_path = 'downloaded_file.csv'  # Local path to save the downloaded file
+gdown.download(url, output_file_path, quiet=False)
+
+# Print the file path being used
+print(f"File downloaded to: {output_file_path}")
+
+# Read the CSV file with encoding handling
+try:
+    df = pd.read_csv(output_file_path, encoding='ISO-8859-1')  # Try using 'ISO-8859-1' encoding
+    print("File read successfully!")
+except UnicodeDecodeError:
+    print(f"Error reading the file with 'ISO-8859-1' encoding, trying 'utf-16' encoding...")
+    df = pd.read_csv(output_file_path, encoding='utf-16')
+
+# List the columns to delete (by name)
+columns_to_delete = ['Entity','GL Date','Intercompany','Source','Category', 'Event Class','Journal Batch', 'Journal','Currency','Currency Amount', 'Total Value' ]  # Delete these
+
+# Delete specified columns if they exist in the sheet
+df = df.drop(columns=[col for col in columns_to_delete if col in df.columns], errors='ignore')
+
+# Function to extract the numeric value from a string (text format)
+def extract_numeric_value(text):
+    match = re.search(r'(\d+\.?\d*)', str(text))
+    if match:
+        return float(match.group(1))  # Return as float
+    return None  # Return None if no numeric part is found
+
+# If 'Account' column exists, extract numeric values and keep rows with specific numbers
+if 'Account' in df.columns:
+    # Extract numeric values from the 'Account' column (assumed to be in text format)
+    df['Account_numeric'] = df['Account'].apply(extract_numeric_value)
+
+    # List of specific numbers to keep (instead of filtering out)
+    keep_numbers = [1518 ,2410 ,2646 ,2689 ,2681 ,2682 ,2341 ,3092 ,2388 ,2322 ,2644 ,2412 ,2391 ,2841 ,2688 ,2852 ,2385 ,2321 ,2384 ,2352 ,2683 ,2735 ,2405 ,2377 ,2374 ,2362 ,2823 ,2685 ,2643 ,2373 ,2733 ,2351 ,2371 ,3064 ,2342 ,2379 ,2731 ,2851 ,2762 ,2642 ,2411 ,2425 ,2361 ,2858 ,2418 ,2842 ,2421 ,2684 ,2737 ,2736 ,2381 ,2413 ,2734 ,2952 ,2822 ,2378 ,2380 ,2430 ,2395 ,1519 ,2404 ]  # account codes to keep
+
+    # Keep only the rows where the numeric value in 'Account_numeric' is in the keep_numbers list
+    df = df[df['Account_numeric'].isin(keep_numbers)]
+
+    # Drop the temporary 'Account_numeric' column after filtering
+    df = df.drop(columns=['Account_numeric'])
+
+# Step 2: Save the filtered file to Google Drive
+output_file_path_filtered = '/content/drive/My Drive/filtered_file.csv'
+
+# Write the modified data back to a new CSV file in Google Drive
+df.to_csv(output_file_path_filtered, index=False)
+
+print(f"Filtered CSV file saved to Google Drive at: {output_file_path_filtered}")
+
